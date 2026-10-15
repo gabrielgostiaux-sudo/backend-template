@@ -1,0 +1,65 @@
+[project]
+name = "my-project-template"
+version = "0.1.0"
+description = "A Python project template using the Cosmic Python architecture"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16",
+    "ty>=0.0.34",     # beta: uv.lock pins it; upgrade deliberately
+    "pytest>=8.0",
+]
+
+[tool.uv]
+# Everyone on the team uses a recent uv (avoids uv.lock format churn).
+required-version = ">=0.9"
+
+# ---------------------------------------------------------------- Ruff
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "C4", "SIM", "RUF",
+    "PL",     # pylint rules, natively in ruff
+    "PTH",    # prefer pathlib
+    "S",      # security (bandit)
+    "N",      # naming
+    "PERF",   # performance anti-patterns
+    "TC",     # type-checking imports
+    "T20",    # no stray print()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S106", "PLR2004"]   # asserts, magic values
+
+[tool.ruff.lint.isort]
+known-first-party = ["my_project_template"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ------------------------------------------------------------------ ty
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.ty.rules]
+possibly-unresolved-reference = "warn"
+unused-ignore-comment = "warn"
+
+# -------------------------------------------------------------- Pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,38 @@
+name: Scope proposal
+description: Propose a change to an agent profile, the repository profile, the corpus or other .github/ content. project-master reviews it; the user approves before anything is applied.
+title: "[scope] <target>: <short summary>"
+labels: ["scope-proposal"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [profile, instructions, corpus, github]
+    validations: { required: true }
+  - type: input
+    id: target
+    attributes:
+      label: Target file or folder
+      placeholder: ".github/agents/cloud-data-engineer.agent.md (PROFILE block)"
+    validations: { required: true }
+  - type: input
+    id: proposer
+    attributes:
+      label: Proposed by (agent or human)
+      placeholder: cloud-data-engineer
+    validations: { required: true }
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed change (unified diff, or the full replacement profile)
+      render: diff
+    validations: { required: true }
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (issues, PRs, fragments, corpus IDs)

@@ -1,0 +1,79 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+  - post-checkout
+  - post-merge
+  - post-rewrite
+
+repos:
+  # Hygiene: Rust-native builtin hooks (prek only)
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # Python / uv
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.0
+    hooks:
+      - id: uv-lock
+      - id: uv-sync
+
+  - repo: local
+    hooks:
+      # Tier 1: fast and auto-fixing, versions come from uv.lock
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+
+      # Tier 2: heavier checks, only on push
+      - id: ty
+        name: ty check
+        entry: uv run --frozen ty check
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]
+
+      - id: pytest
+        name: pytest
+        entry: uv run --frozen pytest -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Terraform (requires terraform and tflint installed locally)
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.109.2
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+        stages: [pre-push]
+      - id: terraform_tflint
+        stages: [pre-push]
+
+  # Docker
+  - repo: https://github.com/AleksaC/hadolint-py
+    rev: v2.14.0
+    hooks:
+      - id: hadolint
+        args: [--failure-threshold=warning]
+
+  - repo: https://github.com/IamTheFij/docker-pre-commit
+    rev: v3.0.1
+    hooks:
+      - id: docker-compose-check
+        stages: [pre-push]

@@ -1,0 +1,51 @@
+name: changes-check
+
+# Server-side twin of the logging hook (team rules, see .github/copilot-instructions.md):
+#  1. .github/ changes need a human's explicit approval: the `human-change` label on the PR
+#  2. every change is logged in .changes/ with the templates (same check as the agentStop hook);
+#     lint, type and formatting fixes ([CLEAN] commits) need no fragment
+# Kept apart from CI so that adding or removing the label re-runs only these fast checks.
+# Dependabot PRs are exempt: they only bump uv.lock and action versions, and cannot write fragments.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changes-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    if: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: .github changes are approved by a human
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'human-change') }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- .github/)
+          if [ -n "$changed" ]; then
+            echo "::error::.github/ changed: review it, then add the 'human-change' label:"
+            echo "$changed"
+            exit 1
+          fi
+
+      - name: Changes are logged with the templates
+        run: >-
+          uv run --no-project python .github/scripts/changes.py check
+          --base "$BASE_SHA" --head "$HEAD_SHA" --branch "$HEAD_REF" --no-worktree
+
+      - name: Profiles follow their templates
+        run: uv run --no-project python .github/scripts/profiles.py check

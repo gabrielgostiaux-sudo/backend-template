@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, hotfix]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Terraform steps run only when the repository has Terraform code in terraform/.
+      - uses: hashicorp/setup-terraform@v3
+        if: ${{ hashFiles('terraform/**/*.tf') != '' }}
+        with:
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@v4
+        if: ${{ hashFiles('terraform/**/*.tf') != '' }}
+
+      - name: Initialize Terraform
+        if: ${{ hashFiles('terraform/**/*.tf') != '' }}
+        run: terraform init -backend=false
+        working-directory: terraform
+
+      - name: Check lockfile
+        run: uv lock --check
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
+        with:
+          install-only: true
+
+      - name: Run pre-commit stage hooks
+        run: prek run --all-files --show-diff-on-failure --color=always
+
+      - name: Run pre-push stage hooks
+        run: prek run --all-files --hook-stage pre-push --show-diff-on-failure --color=always

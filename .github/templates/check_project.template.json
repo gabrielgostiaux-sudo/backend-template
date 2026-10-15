@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "project": {
+    "owner": "__FILL__",
+    "number": 0,
+    "title": "__FILL__",
+    "repository": "__FILL__/__FILL__"
+  },
+  "status_fields": [
+    {
+      "name": "Status",
+      "options": ["__FILL__"]
+    }
+  ],
+  "fields": [
+    {
+      "name": "__FILL__",
+      "type": "single_select",
+      "options": ["__FILL__"]
+    },
+    {
+      "name": "__FILL__",
+      "type": "text"
+    }
+  ],
+  "milestones": ["__FILL__"],
+  "labels": ["__FILL__"],
+  "issues": [
+    {
+      "key": "__FILL__",
+      "title": "__FILL__"
+    }
+  ],
+  "preserved_items": [
+    {
+      "url": "https://github.com/__FILL__/__FILL__/issues/__FILL__",
+      "status": "__FILL__"
+    }
+  ]
+}
