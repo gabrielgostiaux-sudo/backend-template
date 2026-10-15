@@ -34,9 +34,9 @@ Commands
 """
 
 import datetime as dt
-import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -69,19 +69,33 @@ PENDING = "PENDING: ask the user and record their explicit approval"
 NAME_RE = re.compile(
     r"^(\d+|unplanned)-([a-z0-9]+(?:-[a-z0-9]+)*?)-([a-z0-9][a-z0-9-]*)\.md$"
 )
-FM_RE = re.compile(r"^---\n(.*?)\n---\n(.*)$", re.S)
+FM_RE = re.compile(r"^---\n(.*?)\n---\n(.*)$", re.DOTALL)
 PLACEHOLDER_RE = re.compile(r"<[^<>\n]{3,}>")
 
 
 # ---------------------------------------------------------------- git
+GIT = shutil.which("git") or "git"
+NEW_ARGS = 4  # command, issue, agent, slug
+
+
+def out(text=""):
+    sys.stdout.write(f"{text}\n")
+
+
 def git(*args, root=ROOT):
     try:
-        r = subprocess.run(
-            ["git", *args], cwd=root, capture_output=True, text=True, timeout=10
+        # Arguments are passed as a list, never through a shell.
+        r = subprocess.run(  # noqa: S603
+            [GIT, *args],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
-        return r.stdout.strip() if r.returncode == 0 else ""
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ""
+    return r.stdout.strip() if r.returncode == 0 else ""
 
 
 def default_base(root=ROOT):
@@ -174,8 +188,9 @@ def validate(path, kind):
     meta, body = split(path.read_text(encoding="utf-8"))
     if meta is None:
         tpl = TEMPLATE_OF[kind]
-        return problems + [
-            f"{name}: no front matter (start from .github/templates/{tpl})"
+        return [
+            *problems,
+            f"{name}: no front matter (start from .github/templates/{tpl})",
         ]
     missing = [k for k in keys if k not in meta]
     if missing:
@@ -276,7 +291,7 @@ def check(root=ROOT, base=None, head=None, branch=None, worktree=True):
         issue = branch_issue(branch)
         mine = frags("work")
         if issue:
-            mine = [p for p in mine if os.path.basename(p).startswith(f"{issue}-")]
+            mine = [p for p in mine if pathlib.Path(p).name.startswith(f"{issue}-")]
         if not mine:
             where = (
                 f"`{DIRS['work']}/{issue}-<agent>-<slug>.md`"
@@ -372,78 +387,98 @@ def create(kind, issue, agent, slug, values):
         date=dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     path.write_text(template(kind)[0].format(**values), encoding="utf-8")
-    print(path.relative_to(ROOT))
+    out(path.relative_to(ROOT))
+
+
+def cmd_new(a):
+    t = opt(a, "--type", "changed")
+    if t not in TYPES:
+        sys.exit(f"--type must be one of {TYPES}")
+    breaking = "true" if "--breaking" in a else "false"
+    create("work", a[1], a[2], a[3], {"type": t, "breaking": breaking})
+
+
+def cmd_new_context(a):
+    values = {
+        "paths": opt(a, "--paths", ".corpus/…"),
+        "source": opt(a, "--source", "manual"),
+    }
+    create("context", a[1], a[2], a[3], values)
+
+
+def cmd_new_github(a):
+    values = {
+        "paths": opt(a, "--paths", ".github/…"),
+        "source": opt(a, "--source", "manual"),
+        "validated_by": opt(a, "--validated-by", PENDING).replace('"', "'"),
+    }
+    create("github", a[1], a[2], a[3], values)
+
+
+def cmd_list(a):
+    kinds = [opt(a, "--kind")] if opt(a, "--kind") else list(DIRS)
+    for kind in kinds:
+        for p in fragments(kind, opt(a, "--issue")):
+            meta, body = split(p.read_text(encoding="utf-8"))
+            first = next((ln for ln in body.splitlines() if ln.strip()), "")
+            agent = (meta or {}).get("agent")
+            out(f"{p.relative_to(ROOT)}  [{kind}, {agent}]  {first[:90]}")
+
+
+def cmd_show(a):
+    n = opt(a, "--issue")
+    for kind in DIRS:
+        for p in fragments(kind, n):
+            out(f"===== {p.relative_to(ROOT)}\n{p.read_text(encoding='utf-8')}")
+
+
+def cmd_issues(_a):
+    found = [n for n in [branch_issue(git("rev-parse", "--abbrev-ref", "HEAD"))] if n]
+    base = default_base()
+    log = git("log", "--format=%B", f"{base}..HEAD") if base else ""
+    for n in re.findall(r"#(\d+)", log):
+        if n not in found:
+            found.append(n)
+    out(" ".join(found))
+
+
+def cmd_check(a):
+    problems = check(
+        ROOT,
+        opt(a, "--base"),
+        opt(a, "--head"),
+        opt(a, "--branch"),
+        "--no-worktree" not in a,
+    )
+    for p in problems:
+        out(f"FAIL {p}")
+    out("OK" if not problems else f"{len(problems)} problem(s)")
+    sys.exit(1 if problems else 0)
+
+
+def cmd_brief(_a):
+    out(brief())
+
+
+COMMANDS = {
+    "new": cmd_new,
+    "new-context": cmd_new_context,
+    "new-github": cmd_new_github,
+    "list": cmd_list,
+    "show": cmd_show,
+    "issues": cmd_issues,
+    "check": cmd_check,
+    "brief": cmd_brief,
+}
 
 
 def main():
     a = sys.argv[1:]
-    if not a:
+    if not a or a[0] not in COMMANDS or "-h" in a or "--help" in a:
         sys.exit(__doc__)
-    cmd = a[0]
-    if "-h" in a or "--help" in a:
-        sys.exit(__doc__)
-    if cmd in ("new", "new-context", "new-github") and len(a) < 4:
-        sys.exit(f"usage: changes.py {cmd} <issue|unplanned> <agent> <slug> [options]")
-    if cmd == "new":
-        t = opt(a, "--type", "changed")
-        if t not in TYPES:
-            sys.exit(f"--type must be one of {TYPES}")
-        breaking = "true" if "--breaking" in a else "false"
-        create("work", a[1], a[2], a[3], {"type": t, "breaking": breaking})
-    elif cmd == "new-context":
-        values = {
-            "paths": opt(a, "--paths", ".corpus/…"),
-            "source": opt(a, "--source", "manual"),
-        }
-        create("context", a[1], a[2], a[3], values)
-    elif cmd == "new-github":
-        values = {
-            "paths": opt(a, "--paths", ".github/…"),
-            "source": opt(a, "--source", "manual"),
-            "validated_by": opt(a, "--validated-by", PENDING).replace('"', "'"),
-        }
-        create("github", a[1], a[2], a[3], values)
-    elif cmd == "list":
-        kinds = [opt(a, "--kind")] if opt(a, "--kind") else list(DIRS)
-        for kind in kinds:
-            for p in fragments(kind, opt(a, "--issue")):
-                meta, body = split(p.read_text(encoding="utf-8"))
-                first = next((ln for ln in body.splitlines() if ln.strip()), "")
-                print(
-                    f"{p.relative_to(ROOT)}  [{kind}, {(meta or {}).get('agent')}]  "
-                    f"{first[:90]}"
-                )
-    elif cmd == "show":
-        n = opt(a, "--issue")
-        for kind in DIRS:
-            for p in fragments(kind, n):
-                print(f"===== {p.relative_to(ROOT)}\n{p.read_text(encoding='utf-8')}")
-    elif cmd == "issues":
-        found = [
-            n for n in [branch_issue(git("rev-parse", "--abbrev-ref", "HEAD"))] if n
-        ]
-        base = default_base()
-        log = git("log", "--format=%B", f"{base}..HEAD") if base else ""
-        for n in re.findall(r"#(\d+)", log):
-            if n not in found:
-                found.append(n)
-        print(" ".join(found))
-    elif cmd == "check":
-        problems = check(
-            ROOT,
-            opt(a, "--base"),
-            opt(a, "--head"),
-            opt(a, "--branch"),
-            "--no-worktree" not in a,
-        )
-        for p in problems:
-            print("FAIL", p)
-        print("OK" if not problems else f"{len(problems)} problem(s)")
-        sys.exit(1 if problems else 0)
-    elif cmd == "brief":
-        print(brief())
-    else:
-        sys.exit(__doc__)
+    if a[0].startswith("new") and len(a) < NEW_ARGS:
+        sys.exit(f"usage: changes.py {a[0]} <issue|unplanned> <agent> <slug> [options]")
+    COMMANDS[a[0]](a)
 
 
 if __name__ == "__main__":

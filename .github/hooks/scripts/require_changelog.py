@@ -12,10 +12,27 @@ this turn was already forced to continue (stop_hook_active), the agent may stop.
 """
 
 import contextlib
+import importlib
 import json
-import os
+import pathlib
+import shutil
 import subprocess
 import sys
+
+
+def repo_root(cwd):
+    git = shutil.which("git")
+    if not git:
+        return ""
+    # Arguments are passed as a list, never through a shell.
+    r = subprocess.run(  # noqa: S603
+        [git, "rev-parse", "--show-toplevel"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return r.stdout.strip()
 
 
 def main():
@@ -25,15 +42,12 @@ def main():
         return
     if data.get("stop_hook_active") or data.get("stopHookActive"):
         return
-    cwd = data.get("cwd") or os.getcwd()
-    root = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], cwd=cwd, capture_output=True, text=True
-    ).stdout.strip()
+    root = repo_root(data.get("cwd") or pathlib.Path.cwd())
     if not root:
         return
     sys.dont_write_bytecode = True  # never leave __pycache__ inside .github/
-    sys.path.insert(0, os.path.join(root, ".github", "scripts"))
-    import changes  # noqa: E402
+    sys.path.insert(0, str(pathlib.Path(root) / ".github" / "scripts"))
+    changes = importlib.import_module("changes")
 
     problems = changes.check(root)
     if problems:
@@ -43,7 +57,7 @@ def main():
             + " Fragments follow .github/templates/"
             " (fragment.md, context-change.md, github-change.md)."
         )
-        print(json.dumps({"decision": "block", "reason": reason}))
+        sys.stdout.write(json.dumps({"decision": "block", "reason": reason}) + "\n")
 
 
 if __name__ == "__main__":
