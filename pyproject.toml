@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 dev = [
     "ruff>=0.16",
     "ty>=0.0.34",     # beta: uv.lock pins it; upgrade deliberately
-    "pytest>=8.0",
+    "pytest>=9.1.1",
 ]
 
 [tool.uv]
