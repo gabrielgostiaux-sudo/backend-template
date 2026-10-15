@@ -10,6 +10,6 @@ Reverted the PR test by deleting the PR test files.
 ## Details
 - **Files:** `docs/test.md`
 - **Why:** Success full test resulting in post test cleaning
-- **Verified:** 
+- **Verified:**
 - **Rollback:** N/A
 - **Follow-ups:** N/A
