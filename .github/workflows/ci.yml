@@ -23,7 +23,7 @@ jobs:
           enable-cache: true
 
       # Terraform steps run only when the repository has Terraform code in terraform/.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         if: ${{ hashFiles('terraform/**/*.tf') != '' }}
         with:
           terraform_wrapper: false
