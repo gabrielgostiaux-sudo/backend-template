@@ -1,4 +1,4 @@
 # Changes to .github/ (agents, instructions, skills, templates, hooks, workflows, project files) and to the
 # corpus are reviewed by a human. Replace the handle, then enable "Require review from Code Owners" on main and dev.
-/.github/   @REPLACE-WITH-YOUR-GITHUB-HANDLE
-/.corpus/   @REPLACE-WITH-YOUR-GITHUB-HANDLE
+/.github/   @gabrielgostiaux-sudo/
+/.corpus/   @gabrielgostiaux-sudo/
