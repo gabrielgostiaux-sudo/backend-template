@@ -18,17 +18,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       # Terraform steps run only when the repository has Terraform code in terraform/.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         if: ${{ hashFiles('terraform/**/*.tf') != '' }}
         with:
           terraform_wrapper: false
 
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@v6
         if: ${{ hashFiles('terraform/**/*.tf') != '' }}
 
       - name: Initialize Terraform
