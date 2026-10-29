@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16",
+    "ruff>=0.17.2",
     "ty>=0.0.34",     # beta: uv.lock pins it; upgrade deliberately
     "pytest>=8.0",
 ]
